@@ -1,0 +1,59 @@
+
+> flutter_backend_api@1.0.0 start
+> node server.js
+
+◇ injected env (3) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Server running in development mode on port 3000
+MongoDB Connected: ac-kjca29w-shard-00-02.xznguhs.mongodb.net
+[0mGET /api/Admin/Payments/summary [36m304[0m 183.810 ms - -[0m
+[0mGET /api/Admin/Payments [36m304[0m 244.195 ms - -[0m
+[0mGET /api/Admin/Logs?page=1&pageSize=10 [32m200[0m 72.282 ms - 332[0m
+[0mPOST /api/Login [32m200[0m 212.471 ms - 389[0m
+[0mGET /api/Admin/SystemHealth [32m200[0m 68.026 ms - 294[0m
+[0mGET /api/Admin/Overview [36m304[0m 523.157 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [32m200[0m 207.763 ms - 3030[0m
+[0mGET /api/Admin/SystemHealth [32m200[0m 72.536 ms - 294[0m
+[0mGET /api/Admin/Overview [36m304[0m 139.569 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 206.692 ms - -[0m
+[0mGET /api/Admin/Specialties [36m304[0m 156.464 ms - -[0m
+[0mGET /api/Admin/Payments/summary [36m304[0m 139.472 ms - -[0m
+[0mGET /api/Admin/Payments [36m304[0m 203.859 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 341.150 ms - -[0m
+[0mGET /api/Admin/Logs?page=1&pageSize=10 [32m200[0m 119.279 ms - 332[0m
+[0mGET /api/Admin/SystemHealth [36m304[0m 68.696 ms - -[0m
+[0mGET /api/Admin/Overview [36m304[0m 144.769 ms - -[0m
+[0mGET /api/Admin/Payments/summary [36m304[0m 151.312 ms - -[0m
+[0mGET /api/Admin/Payments [36m304[0m 264.607 ms - -[0m
+[0mGET /api/Admin/Specialties [36m304[0m 165.245 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 243.259 ms - -[0m
+[0mGET /api/Admin/SystemHealth [32m200[0m 65.224 ms - 294[0m
+[0mGET /api/Admin/Overview [36m304[0m 150.080 ms - -[0m
+[0mGET /api/Admin/SystemHealth [36m304[0m 68.578 ms - -[0m
+[0mGET /api/Admin/Overview [36m304[0m 161.093 ms - -[0m
+[0mGET /api/Admin/Payments/summary [36m304[0m 130.181 ms - -[0m
+[0mGET /api/Admin/Payments [36m304[0m 202.981 ms - -[0m
+[0mGET /api/Admin/SystemHealth [36m304[0m 68.910 ms - -[0m
+[0mGET /api/Admin/Overview [36m304[0m 145.374 ms - -[0m
+[0mGET /api/Admin/Logs?page=1&pageSize=10 [32m200[0m 74.543 ms - 332[0m
+[0mGET /api/Admin/SystemHealth [36m304[0m 70.805 ms - -[0m
+[0mGET /api/Admin/Overview [36m304[0m 144.022 ms - -[0m
+[0mGET /api/Admin/Logs?page=1&pageSize=10 [32m200[0m 70.385 ms - 332[0m
+[0mGET /api/Admin/Payments/summary [36m304[0m 177.766 ms - -[0m
+[0mGET /api/Admin/Payments [36m304[0m 248.262 ms - -[0m
+[0mGET /api/Admin/Specialties [36m304[0m 144.263 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 222.763 ms - -[0m
+[0mGET /api/Admin/SystemHealth [32m200[0m 65.635 ms - 294[0m
+[0mGET /api/Admin/Overview [36m304[0m 145.940 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 734.148 ms - -[0m
+[0mGET /api/Admin/SystemHealth [32m200[0m 415.830 ms - 294[0m
+[0mGET /api/Admin/Overview [36m304[0m 508.101 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 218.999 ms - -[0m
+[0mGET /api/Admin/SystemHealth [36m304[0m 65.109 ms - -[0m
+[0mGET /api/Admin/Overview [36m304[0m 518.494 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 205.422 ms - -[0m
+[0mGET /api/Admin/SystemHealth [36m304[0m 64.281 ms - -[0m
+[0mGET /api/Admin/Overview [36m304[0m 136.369 ms - -[0m
+[0mGET /api/Admin/Users?page=0 [36m304[0m 201.859 ms - -[0m
+[0mGET /api/Admin/Specialties [36m304[0m 137.614 ms - -[0m
+[0mGET /api/Admin/Payments/summary [36m304[0m 137.547 ms - -[0m
+[0mGET /api/Admin/Payments [36m304[0m 211.708 ms - -[0m

@@ -17,6 +17,7 @@ import prescriptionRoutes from './modules/prescriptions/prescriptions.routes.js'
 import communicationRoutes from './modules/communication/communication.routes.js';
 import medicalImageRoutes from './modules/medical-images/medical-images.routes.js';
 import doctorRoutes from './modules/doctors/doctors.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,7 @@ app.use('/api/device-tokens', deviceTokenRoutes);
 app.use('/api/doctor-reviews', reviewRoutes);
 app.use('/api/Profile_Management', profileRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/Admin', adminRoutes);
 app.use('/api/records', medicalRecordRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/communication', communicationRoutes);
