@@ -18,6 +18,7 @@ import communicationRoutes from './modules/communication/communication.routes.js
 import medicalImageRoutes from './modules/medical-images/medical-images.routes.js';
 import doctorRoutes from './modules/doctors/doctors.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import aiRoutes from './modules/ai/ai.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,7 @@ app.use('/api/records', medicalRecordRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/communication', communicationRoutes);
 app.use('/api/medical-images', medicalImageRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Error Handling
 app.use(notFound);

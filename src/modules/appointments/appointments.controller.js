@@ -49,6 +49,20 @@ const formatPatientModel = async (userId) => {
   };
 };
 
+const formatAppointmentModel = async (app) => {
+  const doctorModel = await formatDoctorModel(app.doctorId);
+  return {
+    id: app._id.toString(),
+    appointmentDate: app.scheduledStart,
+    appointmentTime: app.timeSlot,
+    reason: app.reason,
+    status: app.status,
+    appointmentType: app.appointmentType,
+    createdAt: app.createdAt,
+    doctor: doctorModel
+  };
+};
+
 export const bookAppointment = async (req, res) => {
   const { doctorId, appointmentDate, appointmentTime, reason, appointmentType, paymentMethod } = req.body;
 
@@ -99,26 +113,26 @@ export const getMyAppointments = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
+  const { status } = req.query;
 
   try {
-    const totalItems = await Appointment.countDocuments({ userId: req.user._id });
-    const appointments = await Appointment.find({ userId: req.user._id })
+    const filter = { userId: req.user._id };
+    if (status) {
+      if (status === 'scheduled') {
+        // Scheduled in Flutter maps to pending or confirmed in backend
+        filter.status = { $in: ['pending', 'confirmed'] };
+      } else {
+        filter.status = status;
+      }
+    }
+
+    const totalItems = await Appointment.countDocuments(filter);
+    const appointments = await Appointment.find(filter)
       .sort({ scheduledStart: 1 })
       .skip(skip)
       .limit(limit);
 
-    const formatted = await Promise.all(appointments.map(async (app) => {
-      const doctorModel = await formatDoctorModel(app.doctorId);
-      return {
-        id: app._id.toString(),
-        appointmentDate: app.scheduledStart,
-        appointmentTime: app.timeSlot,
-        reason: app.reason,
-        status: app.status,
-        createdAt: app.createdAt,
-        doctor: doctorModel
-      };
-    }));
+    const formatted = await Promise.all(appointments.map(formatAppointmentModel));
 
     return sendResponse(res, 200, 'Appointments fetched successfully', {
       pagination: {
@@ -139,9 +153,33 @@ export const updateAppointmentStatus = async (req, res) => {
   const { status } = req.body;
 
   try {
-    const appointment = await Appointment.findByIdAndUpdate(id, { status }, { new: true });
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: id, userId: req.user._id }, 
+      { status }, 
+      { new: true }
+    );
     if (!appointment) return sendResponse(res, 404, 'Appointment not found');
-    return sendResponse(res, 200, 'Appointment status updated', null);
+    
+    const formatted = await formatAppointmentModel(appointment);
+    return sendResponse(res, 200, 'Appointment status updated', formatted);
+  } catch (error) {
+    return sendResponse(res, 400, error.message);
+  }
+};
+
+export const cancelAppointment = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: id, userId: req.user._id }, 
+      { status: 'cancelled' }, 
+      { new: true }
+    );
+    if (!appointment) return sendResponse(res, 404, 'Appointment not found');
+    
+    const formatted = await formatAppointmentModel(appointment);
+    return sendResponse(res, 200, 'Appointment cancelled successfully', formatted);
   } catch (error) {
     return sendResponse(res, 400, error.message);
   }
@@ -149,22 +187,33 @@ export const updateAppointmentStatus = async (req, res) => {
 
 export const rescheduleAppointment = async (req, res) => {
   const { id } = req.params;
-  const { appointmentDate, appointmentTime } = req.body;
+  const { newDate, newTime, reason, appointmentType } = req.body;
 
   try {
-    const scheduledStart = new Date(`${appointmentDate}T${appointmentTime}Z`);
+    const scheduledStart = new Date(`${newDate}T${newTime}Z`);
     const scheduledEnd = new Date(scheduledStart.getTime() + 30 * 60 * 1000);
 
-    const appointment = await Appointment.findByIdAndUpdate(id, {
+    const updateData = {
       scheduledStart,
       scheduledEnd,
-      appointmentDate,
-      timeSlot: appointmentTime.substring(0, 5),
-      status: 'rescheduled'
-    }, { new: true });
+      appointmentDate: newDate,
+      timeSlot: newTime.substring(0, 5),
+      status: 'pending'
+    };
+
+    if (reason) updateData.reason = reason;
+    if (appointmentType) updateData.appointmentType = appointmentType;
+
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: id, userId: req.user._id },
+      updateData,
+      { new: true }
+    );
 
     if (!appointment) return sendResponse(res, 404, 'Appointment not found');
-    return sendResponse(res, 200, 'Appointment rescheduled successfully', null);
+    
+    const formatted = await formatAppointmentModel(appointment);
+    return sendResponse(res, 200, 'Appointment rescheduled successfully', formatted);
   } catch (error) {
     return sendResponse(res, 400, error.message);
   }
@@ -174,7 +223,7 @@ export const getAppointmentDetails = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const app = await Appointment.findById(id)
+    const app = await Appointment.findOne({ _id: id, userId: req.user._id })
       .populate('userId')
       .populate({
         path: 'doctorId',
@@ -229,7 +278,7 @@ export const getAppointmentDetails = async (req, res) => {
       diagnoses: app.diagnoses.map(d => ({
         id: d._id.toString(),
         medicalRecordId: d.medicalRecordId.toString(),
-        medicalRecordTitle: 'Record', // Needs more population if strictly required
+        medicalRecordTitle: 'Record',
         appointmentId: d.appointmentId?.toString(),
         diagnosedBy: d.diagnosedBy._id.toString(),
         doctorName: d.diagnosedBy.fullName,
