@@ -1,6 +1,10 @@
 import MedicalRecord from '../../models/MedicalRecord.js';
 import Diagnosis from '../../models/Diagnosis.js';
+import Appointment from '../../models/Appointment.js';
+import Doctor from '../../models/Doctor.js';
+import Prescription from '../../models/Prescription.js';
 import { sendResponse } from '../../utils/response.js';
+import { createNotification } from '../notifications/notifications.service.js';
 
 export const getMedicalRecords = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -48,5 +52,88 @@ export const getMedicalRecords = async (req, res) => {
     });
   } catch (error) {
     return sendResponse(res, 500, error.message);
+  }
+};
+
+export const createMedicalRecord = async (req, res) => {
+  if (req.user.role !== 'Doctor') {
+    return sendResponse(res, 403, 'Only doctors can create medical records');
+  }
+
+  const { appointmentId, title, description, icdCode, severity, medications } = req.body;
+
+  try {
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+    if (!doctor) {
+      return sendResponse(res, 404, 'Doctor profile not found');
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return sendResponse(res, 404, 'Appointment not found');
+    }
+
+    if (appointment.doctorId.toString() !== doctor._id.toString()) {
+      return sendResponse(res, 403, 'You are not authorized to update this appointment');
+    }
+
+    if (appointment.status !== 'confirmed') {
+      return sendResponse(res, 400, 'Only confirmed appointments can be completed');
+    }
+
+    // 1. Create Medical Record
+    const record = await MedicalRecord.create({
+      userId: appointment.userId,
+      title: title || 'Clinical Consultation',
+      recordType: 'Consultation',
+    });
+
+    // 2. Create Diagnosis
+    const diagnosis = await Diagnosis.create({
+      medicalRecordId: record._id,
+      appointmentId: appointment._id,
+      diagnosedBy: req.user._id,
+      description,
+      icdCode: icdCode || 'General',
+      severity: severity || 'moderate',
+    });
+
+    // 3. Create Prescription if medications exist
+    let prescription = null;
+    if (medications && Array.isArray(medications) && medications.length > 0) {
+      prescription = await Prescription.create({
+        diagnosisId: diagnosis._id,
+        patientId: appointment.userId,
+        doctorId: doctor._id,
+        appointmentId: appointment._id,
+        medications,
+      });
+    }
+
+    // 4. Update Appointment
+    appointment.medicalRecordId = record._id;
+    appointment.diagnoses.push(diagnosis._id);
+    if (prescription) {
+      appointment.prescriptions.push(prescription._id);
+    }
+    appointment.status = 'completed';
+    await appointment.save();
+
+    // 5. Notify Patient
+    await createNotification(
+      appointment.userId,
+      'Consultation Completed',
+      'Your doctor has completed the consultation and added a new medical record.',
+      'medical_record',
+      { appointmentId: appointment._id }
+    );
+
+    return sendResponse(res, 201, 'Medical record created and appointment completed', {
+      medicalRecordId: record._id,
+      diagnosisId: diagnosis._id,
+      prescriptionId: prescription ? prescription._id : null
+    });
+  } catch (error) {
+    return sendResponse(res, 400, error.message);
   }
 };

@@ -4,43 +4,91 @@ import Appointment from '../../models/Appointment.js';
 import User from '../../models/User.js';
 import { sendResponse } from '../../utils/response.js';
 
+export const updateSchedule = async (req, res) => {
+  if (req.user.role !== 'Doctor') {
+    return sendResponse(res, 403, 'Only doctors can update schedule');
+  }
+
+  const { workingDays, workingTimeStart, workingTimeEnd, slotDuration } = req.body;
+
+  try {
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+    if (!doctor) return sendResponse(res, 404, 'Doctor profile not found');
+
+    if (workingDays) doctor.workingDays = workingDays;
+    if (workingTimeStart) doctor.workingTimeStart = workingTimeStart;
+    if (workingTimeEnd) doctor.workingTimeEnd = workingTimeEnd;
+    if (slotDuration) doctor.slotDuration = slotDuration;
+
+    await doctor.save();
+    return sendResponse(res, 200, 'Schedule updated successfully', doctor);
+  } catch (error) {
+    return sendResponse(res, 400, error.message);
+  }
+};
+
 export const getAvailableSlots = async (req, res) => {
   const { doctorId } = req.params;
   const { date } = req.query; // YYYY-MM-DD
 
+  if (!date) return sendResponse(res, 400, 'Date parameter is required');
+
   try {
-    const doctor = await Doctor.findById(doctorId);
-    if (!doctor) return sendResponse(res, 404, 'Doctor not found');
+    const doctor = await Doctor.findOne({ _id: doctorId, isApproved: true });
+    if (!doctor) return sendResponse(res, 404, 'Doctor not found or not approved');
 
-    // Mocking logic for available slots
-    // In a real app, you would check working hours and existing appointments
+    const reqDate = new Date(date);
+    const dayOfWeek = reqDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+    // Check if doctor works on this day
+    const isWorkingDay = doctor.workingDays && doctor.workingDays.includes(dayOfWeek);
+
+    if (!isWorkingDay) {
+      return sendResponse(res, 200, 'Doctor does not work on this day', {
+        doctorId, date, slotDuration: doctor.slotDuration || 30, buffer: 0, slots: [], isWorkingDay: false
+      });
+    }
+
     const slots = [];
-    const startHour = parseInt(doctor.workingTimeStart?.split(':')[0] || 9);
-    const endHour = parseInt(doctor.workingTimeEnd?.split(':')[0] || 17);
+    const startParts = (doctor.workingTimeStart || "09:00").split(':');
+    const endParts = (doctor.workingTimeEnd || "17:00").split(':');
+    
+    let currentMins = parseInt(startParts[0]) * 60 + parseInt(startParts[1] || 0);
+    const endMins = parseInt(endParts[0]) * 60 + parseInt(endParts[1] || 0);
+    const duration = doctor.slotDuration || 30;
 
-    for (let h = startHour; h < endHour; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
-        const dateTime = `${date}T${time}Z`;
-        
+    const now = new Date();
+    const isToday = now.toISOString().split('T')[0] === date;
+    const currentMinsNow = now.getHours() * 60 + now.getMinutes();
+
+    while (currentMins + duration <= endMins) {
+      const h = Math.floor(currentMins / 60).toString().padStart(2, '0');
+      const m = (currentMins % 60).toString().padStart(2, '0');
+      const time = `${h}:${m}:00`;
+      const timeSlotStr = `${h}:${m}`;
+      const dateTime = `${date}T${time}Z`;
+
+      // If today, skip past slots
+      if (!isToday || currentMins > currentMinsNow) {
         // Check if already booked
         const booked = await Appointment.findOne({
           doctorId,
           appointmentDate: date,
-          timeSlot: time.substring(0, 5),
-          status: { $ne: 'cancelled' }
+          timeSlot: timeSlotStr,
+          status: { $nin: ['cancelled', 'rescheduled'] }
         });
 
         if (!booked) {
           slots.push(dateTime);
         }
       }
+      currentMins += duration;
     }
 
     const data = {
       doctorId,
       date,
-      slotDuration: 30,
+      slotDuration: duration,
       buffer: 0,
       slots,
       isWorkingDay: true
@@ -57,7 +105,8 @@ export const searchDoctors = async (req, res) => {
   const skip = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    const filter = {};
+    // Only return approved doctors
+    const filter = { isApproved: true };
     if (specialtyId) filter.specialtyId = specialtyId;
 
     let users = [];

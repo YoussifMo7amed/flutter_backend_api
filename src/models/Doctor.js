@@ -8,8 +8,10 @@ const doctorSchema = new mongoose.Schema({
   workingDays: [{ type: String }],
   workingTimeStart: { type: String }, // e.g., "09:00"
   workingTimeEnd: { type: String },   // e.g., "17:00"
+  slotDuration: { type: Number, default: 30 }, // Duration in minutes
   qualifications: { type: String },
   licenseNumber: { type: String },
+  isApproved: { type: Boolean, default: false }, // Admin approval status
 }, { timestamps: true });
 
 doctorSchema.set('toJSON', {

@@ -44,7 +44,7 @@ export const register = async (req, res) => {
 
     if (user) {
       return sendResponse(res, 201, 'Registration successful', {
-        token: generateToken(user._id),
+        token: generateToken(user._id, user.role),
         user: formatUserResponse(user)
       });
     }
@@ -66,11 +66,11 @@ export const login = async (req, res) => {
       await user.save();
 
       return sendResponse(res, 200, 'Login successful', {
-        token: generateToken(user._id),
+        token: generateToken(user._id, user.role),
         user: formatUserResponse(user)
       });
     } else {
-      return sendResponse(res, 401, 'Invalid email/phone or password');
+      return sendResponse(res, 401, 'Invalid email or password');
     }
   } catch (error) {
     return sendResponse(res, 400, error.message);
@@ -140,24 +140,45 @@ export const resetPassword = async (req, res) => {
 };
 
 export const completeProfile = async (req, res) => {
-  const { birthDate, gender, address, bloodType } = req.body;
+  const { birthDate, gender, address, bloodType, specialtyId, consultationFee, qualifications, licenseNumber } = req.body;
 
   try {
-    let patient = await Patient.findOne({ userId: req.user._id });
-    if (patient) {
-      patient.birthDate = birthDate;
-      patient.gender = gender;
-      patient.address = address;
-      patient.bloodType = bloodType;
-      await patient.save();
+    if (req.user.role === 'Doctor') {
+      let doctor = await Doctor.findOne({ userId: req.user._id });
+      if (doctor) {
+        if (specialtyId) doctor.specialtyId = specialtyId;
+        if (consultationFee) doctor.consultationFee = consultationFee;
+        if (address) doctor.address = address;
+        if (qualifications) doctor.qualifications = qualifications;
+        if (licenseNumber) doctor.licenseNumber = licenseNumber;
+        await doctor.save();
+      } else {
+        await Doctor.create({
+          userId: req.user._id,
+          specialtyId,
+          consultationFee: consultationFee || 0,
+          address,
+          qualifications,
+          licenseNumber
+        });
+      }
     } else {
-      await Patient.create({
-        userId: req.user._id,
-        birthDate,
-        gender,
-        address,
-        bloodType
-      });
+      let patient = await Patient.findOne({ userId: req.user._id });
+      if (patient) {
+        patient.birthDate = birthDate;
+        patient.gender = gender;
+        patient.address = address;
+        patient.bloodType = bloodType;
+        await patient.save();
+      } else {
+        await Patient.create({
+          userId: req.user._id,
+          birthDate,
+          gender,
+          address,
+          bloodType
+        });
+      }
     }
 
     req.user.isCompletedProfile = true;

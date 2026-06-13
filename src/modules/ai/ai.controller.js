@@ -88,7 +88,7 @@ const mapSpecialty = async (prediction) => {
 };
 const getRecommendedDoctors = async (specialtyId) => {
   if (!specialtyId) return [];
-  const doctors = await Doctor.find({ specialtyId })
+  const doctors = await Doctor.find({ specialtyId, isApproved: true })
     .populate('userId', 'fullName imageUrl')
     .limit(3);
   

@@ -12,7 +12,7 @@ const appointmentSchema = new mongoose.Schema({
   price: { type: Number, default: 0 },
   status: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'], 
+    enum: ['pending', 'confirmed', 'completed','in_progress','cancelled', 'rescheduled'], 
     default: 'pending' 
   },
   medicalRecordId: { type: mongoose.Schema.Types.ObjectId, ref: 'MedicalRecord' },

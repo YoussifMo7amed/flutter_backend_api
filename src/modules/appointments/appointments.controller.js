@@ -8,6 +8,8 @@ import Diagnosis from '../../models/Diagnosis.js';
 import Prescription from '../../models/Prescription.js';
 import MedicalImage from '../../models/MedicalImage.js';
 import { sendResponse } from '../../utils/response.js';
+import CommunicationSession from '../../models/CommunicationSession.js';
+import { createCommunicationSessionForAppointment } from '../communication/communication.service.js';
 
 const formatDoctorModel = async (doctorId) => {
   const doc = await Doctor.findById(doctorId).populate('userId').populate('specialtyId');
@@ -73,6 +75,9 @@ export const bookAppointment = async (req, res) => {
     const scheduledStart = new Date(`${appointmentDate}T${appointmentTime}Z`);
     const scheduledEnd = new Date(scheduledStart.getTime() + 30 * 60 * 1000); // 30 mins later
 
+    const isCash = paymentMethod === 'cash';
+    const status = isCash ? 'in_progress' : 'pending';
+
     const appointment = await Appointment.create({
       userId: req.user._id,
       doctorId,
@@ -83,8 +88,12 @@ export const bookAppointment = async (req, res) => {
       reason,
       appointmentType,
       price: doctor.consultationFee,
-      status: 'pending'
+      status
     });
+
+    if (isCash) {
+      await createCommunicationSessionForAppointment(appointment);
+    }
 
     const patientModel = await formatPatientModel(req.user._id);
     const doctorModel = await formatDoctorModel(doctorId);
@@ -116,11 +125,19 @@ export const getMyAppointments = async (req, res) => {
   const { status } = req.query;
 
   try {
-    const filter = { userId: req.user._id };
+    let filter = {};
+    if (req.user.role === 'Doctor') {
+      const doctor = await Doctor.findOne({ userId: req.user._id });
+      if (!doctor) return sendResponse(res, 404, 'Doctor profile not found');
+      filter.doctorId = doctor._id;
+    } else {
+      filter.userId = req.user._id;
+    }
+
     if (status) {
       if (status === 'scheduled') {
         // Scheduled in Flutter maps to pending or confirmed in backend
-        filter.status = { $in: ['pending', 'confirmed'] };
+        filter.status = { $in: ['pending', 'confirmed', 'in_progress'] };
       } else {
         filter.status = status;
       }
@@ -148,18 +165,33 @@ export const getMyAppointments = async (req, res) => {
   }
 };
 
+const getRoleFilter = async (req) => {
+  if (req.user.role === 'Doctor') {
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+    if (!doctor) throw new Error('Doctor profile not found');
+    return { doctorId: doctor._id };
+  }
+  return { userId: req.user._id };
+};
+
 export const updateAppointmentStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
   try {
+    const roleFilter = await getRoleFilter(req);
     const appointment = await Appointment.findOneAndUpdate(
-      { _id: id, userId: req.user._id }, 
+      { _id: id, ...roleFilter }, 
       { status }, 
       { new: true }
     );
-    if (!appointment) return sendResponse(res, 404, 'Appointment not found');
+    if (!appointment) return sendResponse(res, 404, 'Appointment not found or unauthorized');
     
+    // Automatically create a Communication Session for the confirmed appointment (e.g., Cash Payment or manual confirmation)
+    if (status === 'confirmed') {
+      await createCommunicationSessionForAppointment(appointment);
+    }
+
     const formatted = await formatAppointmentModel(appointment);
     return sendResponse(res, 200, 'Appointment status updated', formatted);
   } catch (error) {
@@ -171,12 +203,13 @@ export const cancelAppointment = async (req, res) => {
   const { id } = req.params;
 
   try {
+    const roleFilter = await getRoleFilter(req);
     const appointment = await Appointment.findOneAndUpdate(
-      { _id: id, userId: req.user._id }, 
+      { _id: id, ...roleFilter }, 
       { status: 'cancelled' }, 
       { new: true }
     );
-    if (!appointment) return sendResponse(res, 404, 'Appointment not found');
+    if (!appointment) return sendResponse(res, 404, 'Appointment not found or unauthorized');
     
     const formatted = await formatAppointmentModel(appointment);
     return sendResponse(res, 200, 'Appointment cancelled successfully', formatted);
@@ -190,6 +223,7 @@ export const rescheduleAppointment = async (req, res) => {
   const { newDate, newTime, reason, appointmentType } = req.body;
 
   try {
+    const roleFilter = await getRoleFilter(req);
     const scheduledStart = new Date(`${newDate}T${newTime}Z`);
     const scheduledEnd = new Date(scheduledStart.getTime() + 30 * 60 * 1000);
 
@@ -205,12 +239,12 @@ export const rescheduleAppointment = async (req, res) => {
     if (appointmentType) updateData.appointmentType = appointmentType;
 
     const appointment = await Appointment.findOneAndUpdate(
-      { _id: id, userId: req.user._id },
+      { _id: id, ...roleFilter },
       updateData,
       { new: true }
     );
 
-    if (!appointment) return sendResponse(res, 404, 'Appointment not found');
+    if (!appointment) return sendResponse(res, 404, 'Appointment not found or unauthorized');
     
     const formatted = await formatAppointmentModel(appointment);
     return sendResponse(res, 200, 'Appointment rescheduled successfully', formatted);
@@ -223,7 +257,8 @@ export const getAppointmentDetails = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const app = await Appointment.findOne({ _id: id, userId: req.user._id })
+    const roleFilter = await getRoleFilter(req);
+    const app = await Appointment.findOne({ _id: id, ...roleFilter })
       .populate('userId')
       .populate({
         path: 'doctorId',
@@ -237,7 +272,7 @@ export const getAppointmentDetails = async (req, res) => {
       .populate('prescriptions')
       .populate('medicalImages');
 
-    if (!app) return sendResponse(res, 404, 'Appointment not found');
+    if (!app) return sendResponse(res, 404, 'Appointment not found or unauthorized');
 
     const patient = await Patient.findOne({ userId: app.userId._id });
     
@@ -333,6 +368,37 @@ export const getAppointmentDetails = async (req, res) => {
     };
 
     return sendResponse(res, 200, 'Appointment details retrieved successfully', data);
+  } catch (error) {
+    return sendResponse(res, 500, error.message);
+  }
+};
+
+export const getActiveAppointmentByDoctor = async (req, res) => {
+  const { doctorId } = req.params;
+  const userId = req.user._id;
+
+  try {
+    const appointment = await Appointment.findOne({
+      userId,
+      doctorId,
+      status: { $in: ['confirmed', 'in_progress'] }
+    }).sort({ createdAt: -1 });
+
+    if (!appointment) {
+      return sendResponse(res, 200, 'No active appointment found', { hasActiveAppointment: false });
+    }
+
+    const session = await CommunicationSession.findOne({
+      appointmentId: appointment._id,
+      status: 'active'
+    });
+
+    return sendResponse(res, 200, 'Active appointment found', {
+      hasActiveAppointment: true,
+      appointmentId: appointment._id.toString(),
+      status: appointment.status,
+      sessionId: session ? session._id.toString() : null
+    });
   } catch (error) {
     return sendResponse(res, 500, error.message);
   }

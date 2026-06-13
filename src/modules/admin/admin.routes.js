@@ -6,7 +6,8 @@ import {
   getUsers, getUserById,
   getSpecialties, getSpecialtyById, createSpecialty, updateSpecialty, deleteSpecialty, restoreSpecialty,
   getLogs,
-  getPayments, getPaymentsSummary, getPaymentById
+  getPayments, getPaymentsSummary, getPaymentById,
+  getPendingDoctors, approveDoctor, rejectDoctor
 } from './admin.controller.js';
 
 // We can add an adminOnly middleware, but let's just use protect for now to ensure we don't lock ourselves out if we don't have an admin user set up yet.
@@ -36,6 +37,11 @@ router.use(adminOnly);
 // Overview
 router.get('/Overview', getOverview);
 router.get('/SystemHealth', getSystemHealth);
+
+// Doctors Approval
+router.get('/Doctors/pending', getPendingDoctors);
+router.patch('/Doctors/:doctorId/approve', approveDoctor);
+router.delete('/Doctors/:doctorId', rejectDoctor);
 
 // Users
 router.get('/Users', getUsers);

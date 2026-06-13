@@ -1,6 +1,7 @@
 import Payment from '../../models/Payment.js';
 import Appointment from '../../models/Appointment.js';
 import Doctor from '../../models/Doctor.js';
+import CommunicationSession from '../../models/CommunicationSession.js';
 import { sendResponse } from '../../utils/response.js';
 import { createNotification } from '../notifications/notifications.service.js';
 
@@ -67,13 +68,18 @@ export const updatePaymentStatus = async (req, res) => {
     if (status === 'success') {
       payment.paidAt = new Date();
       // Confirm the appointment
-      await Appointment.findByIdAndUpdate(payment.appointmentId, { status: 'confirmed' });
+      const appointment = await Appointment.findByIdAndUpdate(payment.appointmentId, { status: 'confirmed' });
+
+      // Automatically create a Communication Session for the confirmed appointment
+      if (appointment) {
+        await createCommunicationSessionForAppointment(appointment);
+      }
 
       // Trigger Notification
       await createNotification(
         payment.userId,
         'Payment Successful',
-        'Your payment has been completed successfully.',
+        'Your payment has been completed successfully. Your consultation session is now active.',
         'payment',
         { appointmentId: payment.appointmentId }
       );

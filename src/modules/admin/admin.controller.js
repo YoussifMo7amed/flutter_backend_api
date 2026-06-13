@@ -52,6 +52,60 @@ export const getSystemHealth = async (req, res) => {
   }
 };
 
+// PENDING DOCTORS
+export const getPendingDoctors = async (req, res) => {
+  try {
+    const doctors = await Doctor.find({ isApproved: false })
+      .populate('userId', 'fullName email phoneNumber imageUrl')
+      .populate('specialtyId', 'name');
+
+    const formatted = doctors.map(doc => ({
+      id: doc._id.toString(),
+      fullName: doc.userId?.fullName || 'Unknown',
+      email: doc.userId?.email || '',
+      phone: doc.userId?.phoneNumber || '',
+      specialty: doc.specialtyId?.name || '',
+      licenseNumber: doc.licenseNumber,
+      qualifications: doc.qualifications,
+      consultationFee: doc.consultationFee,
+      imageUrl: doc.userId?.imageUrl || ''
+    }));
+
+    return sendResponse(res, 200, 'Pending doctors fetched successfully', formatted);
+  } catch (error) {
+    return sendResponse(res, 500, error.message);
+  }
+};
+
+export const approveDoctor = async (req, res) => {
+  try {
+    const doctor = await Doctor.findByIdAndUpdate(
+      req.params.doctorId, 
+      { isApproved: true }, 
+      { new: true }
+    );
+    if (!doctor) return sendResponse(res, 404, 'Doctor not found');
+    return sendResponse(res, 200, 'Doctor approved successfully');
+  } catch (error) {
+    return sendResponse(res, 500, error.message);
+  }
+};
+
+export const rejectDoctor = async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.params.doctorId);
+    if (!doctor) return sendResponse(res, 404, 'Doctor not found');
+    
+    // In a real scenario we might delete the User entirely or revert their role
+    await User.findByIdAndDelete(doctor.userId);
+    await Doctor.findByIdAndDelete(req.params.doctorId);
+    
+    return sendResponse(res, 200, 'Doctor rejected and removed');
+  } catch (error) {
+    return sendResponse(res, 500, error.message);
+  }
+};
+
 // USERS
 export const getUsers = async (req, res) => {
   try {

@@ -1,9 +1,13 @@
 import dotenv from 'dotenv';
 import app from './src/app.js';
 import connectDB from './src/config/db.js';
+import { initFirebase } from './src/config/firebase.js';
 
 // Load env vars
 dotenv.config();
+
+// Initialize Firebase
+initFirebase();
 
 // Connect to Database
 connectDB();
